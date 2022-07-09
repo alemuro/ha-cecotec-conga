@@ -1,0 +1,5 @@
+{
+    "homeassistant": "2022.6.0",
+    "name": "cecotec_conga",
+    "render_readme": true
+  }
