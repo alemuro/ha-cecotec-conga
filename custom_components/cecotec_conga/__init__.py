@@ -2,6 +2,7 @@ import logging
 import requests
 import json
 import boto3
+import datetime
 from pycognito import Cognito
 from pycognito.utils import RequestsSrpAuth
 
@@ -12,11 +13,8 @@ AWS_IOT_ENDPOINT = "https://a39k27k2ztga9m-ats.iot.eu-west-2.amazonaws.com"
 
 
 async def async_setup_entry(hass, entry):
-    """Set up TMB sensors based on a config entry."""
+    """Set up Cecotec Conga vacuums based on a config entry."""
 
-    # hass.async_create_task(
-    #     hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    # )
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "vacuum")
     )
@@ -30,6 +28,7 @@ class Conga():
         self._devices = []
         self._api_token = None
         self._iot_client = None
+        self._iot_token_expiration = None
 
     def list_vacuums(self):
         self._refresh_api_token()
@@ -101,8 +100,10 @@ class Conga():
         )
 
     def _refresh_iot_client(self):
-        if self._iot_client != None:
+        if self._iot_client != None and self._iot_token_expiration != None and datetime.datetime.now().timestamp() < self._iot_token_expiration.timestamp():
             return self._iot_client
+
+        _LOGGER.info("Refreshing Cecotec Conga token")
 
         u = Cognito('eu-west-2_L5T0M5yrf', '6iep27ce22ojt8bgb2vji3d387',
                     username=self._username)
@@ -128,3 +129,4 @@ class Conga():
             aws_secret_access_key=creds["Credentials"]["SecretKey"],
             aws_session_token=creds["Credentials"]["SessionToken"],
         )
+        self._iot_token_expiration = creds["Credentials"]["Expiration"]
