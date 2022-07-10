@@ -1,3 +1,6 @@
+![GitHub](https://img.shields.io/github/license/alemuro/ha-cecotec-conga?style=flat-square)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/alemuro/ha-cecotec-conga?style=flat-square)
+![GitHub Release Date](https://img.shields.io/github/release-date/alemuro/ha-cecotec-conga?style=flat-square)
 # Cecotec Conga integration
 
 This integration aims to manage new versions of Cecotec Conga vacuum cleaner. The ones that cannot be managed with [FreeConga](https://freecon.ga/).

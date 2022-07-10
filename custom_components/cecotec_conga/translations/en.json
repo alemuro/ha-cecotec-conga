@@ -1,11 +1,10 @@
 {
-    "title": "Cecotec Conga",
     "config": {
         "flow_title": "Login",
         "step": {
             "login": {
                 "title": "Login",
-                "description": "Use the same credentials you use with your mobile app.",
+                "description": "Use your Cecotec Conga credentials.",
                 "data": {
                     "username": "Username",
                     "password": "Password"
@@ -13,7 +12,7 @@
             }
         },
         "error": {
-            "auth_error": "Invalid user."
+            "auth_error": "Invalid user. Try again."
         }
     }
 }
