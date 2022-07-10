@@ -1,0 +1,18 @@
+{
+    "config": {
+        "flow_title": "Inici de sessió",
+        "step": {
+            "login": {
+                "title": "Inici de sessió",
+                "description": "Si us plau, introdueix les teves credenciales de Cecotec.",
+                "data": {
+                    "username": "Usuari",
+                    "password": "Contrasenya"
+                }
+            }
+        },
+        "error": {
+            "auth_error": "Credencials incorrectes. Torna a provar."
+        }
+    }
+}
