@@ -1,4 +1,4 @@
-"""Config flow for TMB."""
+"""Config flow for Cecotec Conga."""
 import logging
 
 from requests.models import HTTPError
@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class CecotecCongaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """TMB config flow."""
+    """Cecotec Conga config flow."""
 
     VERSION = 1
 

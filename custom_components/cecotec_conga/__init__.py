@@ -1,5 +1,7 @@
 import logging
+import random
 import requests
+import string
 import json
 import boto3
 import datetime
@@ -13,8 +15,8 @@ AWS_IOT_ENDPOINT = "https://a39k27k2ztga9m-ats.iot.eu-west-2.amazonaws.com"
 
 
 async def async_setup_entry(hass, entry):
-    """Set up Cecotec Conga vacuums based on a config entry."""
-
+    """Set up Cecotec Conga sensors based on a config entry."""
+    _LOGGER.info("Setting up Cecotec Conga integration")
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "vacuum")
     )
@@ -42,12 +44,43 @@ class Conga():
         _LOGGER.warn(self._devices)
         return self._devices
 
+    def list_plans(self, sn):
+        self._refresh_api_token()
+        response = requests.post(
+            f'{CECOTEC_API_BASE_URL}/api/user/file_list',
+            json={
+                "sn": sn,
+                "file_type": 2,
+                "sort": -1,
+                "page_size": 10,
+                "last_page_key": None
+            },
+            auth=self._api_token
+        )
+        response.raise_for_status()
+        try:
+            pages = response.json()["data"]["page_items"]
+            plans = []
+            plan_names = []
+            for page in pages:
+                if "planName" in page["task_cmd"]["cmd"]:
+                    plans.append(page["task_cmd"]["cmd"])
+                    plan_names.append(page["task_cmd"]["cmd"]["planName"])
+
+            self._plans = plans
+            self._plan_names = plan_names
+        except:
+            self._plans = []
+            self._plan_names = []
+
+        return self._plan_names
+
     def status(self, sn):
         self._refresh_iot_client()
         r = self._iot_client.get_thing_shadow(thingName=sn)
         return json.load(r['payload'])
 
-    def start(self, sn):
+    def start(self, sn, fan_speed):
         payload = {
             "state": {
                 "desired": {
@@ -56,7 +89,7 @@ class Conga():
                         "body": {
                             "mode": "Auto",
                             "deepClean": 0,
-                            "fanLevel": 1,
+                            "fanLevel": fan_speed,
                             "water": 1,
                             "autoBoost": 0,
                             "params": "[]"
@@ -66,6 +99,53 @@ class Conga():
             }
         }
 
+        self._send_payload(sn, payload)
+
+    def set_fan_speed(self, sn, level):
+        payload = {
+            "state": {
+                "desired": {
+                    "workNoisy": level
+                }
+            }
+        }
+        _LOGGER.debug(payload)
+        self._refresh_iot_client()
+        self._iot_client.update_thing_shadow(
+            thingName=sn,
+            payload=bytes(json.dumps(payload), "ascii")
+        )
+
+    def set_water_level(self, sn, level):
+        payload = {
+            "state": {
+                "desired": {
+                    "water": level
+                }
+            }
+        }
+        _LOGGER.debug(payload)
+        self._refresh_iot_client()
+        self._iot_client.update_thing_shadow(
+            thingName=sn,
+            payload=bytes(json.dumps(payload), "ascii")
+        )
+
+    def start_plan(self, sn, plan_name):
+        allowed_chars = string.ascii_lowercase + \
+            string.ascii_uppercase + string.digits
+        result_str = ''.join(random.choice(allowed_chars) for i in range(10))
+        plan = self._get_plan_details(plan_name)
+        payload = {
+            "state": {
+                "desired": {
+                    "StartTimedCleanTask": {
+                        "id": result_str,
+                        "params": json.dumps(plan)
+                    }
+                }
+            }
+        }
         self._send_payload(sn, payload)
 
     def home(self, sn):
@@ -79,7 +159,14 @@ class Conga():
 
         self._send_payload(sn, payload)
 
+    def _get_plan_details(self, plan_name):
+        for plan in self._plans:
+            if plan['planName'] == plan_name:
+                return plan
+        return ""
+
     def _send_payload(self, sn, payload):
+        _LOGGER.debug(payload)
         self._refresh_iot_client()
         self._iot_client.update_thing_shadow(
             thingName=sn,
