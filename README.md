@@ -7,6 +7,8 @@ This integration aims to manage new versions of Cecotec Conga vacuum cleaner. Th
 
 The author of this project categorically rejects any and all responsibility related to vacuums managed by this integration.
 
+![integration screenshot](screenshot.jpg)
+
 ## Installation
 
 ### HACS (Recommended)
