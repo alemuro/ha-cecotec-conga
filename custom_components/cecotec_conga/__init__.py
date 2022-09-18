@@ -28,6 +28,8 @@ class Conga():
         self._username = username
         self._password = password
         self._devices = []
+        self._shadow = {}
+        self._tactics = {}
         self._api_token = None
         self._iot_client = None
         self._iot_token_expiration = None
@@ -44,41 +46,37 @@ class Conga():
         _LOGGER.warn(self._devices)
         return self._devices
 
-    def list_plans(self, sn):
-        self._refresh_api_token()
-        response = requests.post(
-            f'{CECOTEC_API_BASE_URL}/api/user/file_list',
-            json={
-                "sn": sn,
-                "file_type": 2,
-                "sort": -1,
-                "page_size": 10,
-                "last_page_key": None
-            },
-            auth=self._api_token
-        )
-        response.raise_for_status()
-        try:
-            pages = response.json()["data"]["page_items"]
-            plans = []
-            plan_names = []
-            for page in pages:
-                if "planName" in page["task_cmd"]["cmd"]:
-                    plans.append(page["task_cmd"]["cmd"])
-                    plan_names.append(page["task_cmd"]["cmd"]["planName"])
-
-            self._plans = plans
-            self._plan_names = plan_names
-        except:
-            self._plans = []
-            self._plan_names = []
-
+    def list_plans(self):
         return self._plan_names
 
-    def status(self, sn):
+    def update_shadows(self, sn):
         self._refresh_iot_client()
-        r = self._iot_client.get_thing_shadow(thingName=sn)
-        return json.load(r['payload'])
+        shadow = self._iot_client.get_thing_shadow(thingName=sn)
+        shadow_service = self._iot_client.get_thing_shadow(
+            thingName=sn, shadowName='service')
+
+        shadow = json.load(shadow['payload'])['state']['reported']
+        shadow_service = json.load(shadow_service['payload'])[
+            'state']['reported']
+
+        self._shadow = shadow
+        self._tactics = shadow_service['getTimeTactics']['body']['timeTactics']
+
+        # Fill plans variables
+        plans = []
+        plan_names = []
+        for tactic in json.loads(self._tactics)['value']:
+            if "planName" in tactic:
+                plans.append(tactic)
+                plan_names.append(tactic['planName'])
+
+        self._plans = plans
+        self._plan_names = plan_names
+
+        return self._shadow
+
+    def get_status(self):
+        return self._shadow
 
     def start(self, sn, fan_speed):
         payload = {
@@ -146,6 +144,7 @@ class Conga():
                 }
             }
         }
+        _LOGGER.warn(payload)
         self._send_payload(sn, payload)
 
     def home(self, sn):

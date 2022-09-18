@@ -67,8 +67,6 @@ WATER_LEVELS = [
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
-#modes: ["Off", "Eco", "Normal", "Turbo"]
-
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Cecotec Conga sensor from a config entry."""
@@ -231,8 +229,7 @@ class CongaVacuum(StateVacuumEntity):
         if command == "start_plan":
             plan = params["plan"]
             if plan in self._plans:
-                self._conga_client.start_plan(
-                    self._sn, self._plans.index(plan))
+                self._conga_client.start_plan(self._sn, plan)
                 self.schedule_update_ha_state()
             else:
                 _LOGGER.error(
@@ -253,12 +250,12 @@ class CongaVacuum(StateVacuumEntity):
     def update(self):
         """Get the next bus information."""
         try:
-            response = self._conga_client.status(self._sn)
-            self._state_all = response["state"]["reported"]
+            self._conga_client.update_shadows(self._sn)
+            self._state_all = self._conga_client.get_status()
 
             self._battery = self._state_all["elec"]
             self._state = self._state_all["mode"]
-            self._plans = self._conga_client.list_plans(self._sn)
+            self._plans = self._conga_client.list_plans()
         except HTTPError:
             _LOGGER.error(
                 "Unable to fetch data from API"

@@ -60,6 +60,20 @@ data:
     water_level: Medium
 ```
 
+### Start plan
+
+To start a plan called `Cuina`, run the `vacuum.send_command` service with the `start_plan` command, and provide the plan as a parameter. The parameter must be created before from the App.
+
+```
+service: vacuum.send_command
+target:
+  entity_id: vacuum.conga
+data:
+  command: start_plan
+  params:
+    plan: Cuina
+```
+
 ## Developers
 
 ### Local testing
@@ -71,7 +85,14 @@ If you already have a Conga, I encourage you to test it by executing the `test.p
 3. Create a `.env` file with the variables `CONGA_USERNAME`, `CONGA_PASSWORD` and `CONGA_SN` (serial number). The serial number is retrieved by the script.
 4. Execute `python test.py`.
 
-There is a Makefile target to start a Docker container with this integration installed as a `custom_component`. Execute `make test-local`.
+There is a Makefile target to start a Docker container with this integration installed as a `custom_component`. Execute `make test-local`. This will create a local folder `.config`. To set debugging mode add this to `.config/configuration.yaml` file:
+
+```
+logger:
+  default: info
+  logs:
+    custom_components.cecotec_conga: debug
+```
 
 ## Legal notice
 This is a personal project and isn't in any way affiliated with, sponsored or endorsed by [CECOTEC](https://www.cecotec.es/).
