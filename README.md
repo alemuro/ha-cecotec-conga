@@ -1,9 +1,9 @@
 ![GitHub](https://img.shields.io/github/license/alemuro/ha-cecotec-conga?style=flat-square)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/alemuro/ha-cecotec-conga?style=flat-square)
 ![GitHub Release Date](https://img.shields.io/github/release-date/alemuro/ha-cecotec-conga?style=flat-square)
-# Cecotec Conga integration
+# Cecotec Conga 5290 integration
 
-This integration aims to manage new versions of Cecotec Conga vacuum cleaner. The ones that cannot be managed with [FreeConga](https://freecon.ga/).
+This integration aims to manage Cecotec Conga 5290 vacuum cleaner which cannot be managed by [FreeConga](https://freecon.ga/) or [BadConga](https://github.com/adrigzr/badconga).
 
 The author of this project categorically rejects any and all responsibility related to vacuums managed by this integration.
 
@@ -31,7 +31,17 @@ You're ready! Now continue with the configuration.
 ## Supported devices
 
 This integration has been tested with the following vacuum cleaners:
-* Conga 5290
+
+| Model name | Supported?                                                    |
+| ---------- | ------------------------------------------------------------- |
+| Conga 5290 | ✅ Yes!                                                        |
+| Conga 2290 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/12) |
+| Conga 3090 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/19) |
+| Conga 3690 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/10) |
+| Conga 4690 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/13) |
+| Conga 5090 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/14) |
+| Conga 6090 | ❌ [No](https://github.com/alemuro/ha-cecotec-conga/issues/9)  |
+
 
 [Have you tested a different one and it works? Please tell us!](https://github.com/alemuro/ha-cecotec-conga/issues/new?assignees=&labels=&template=device-tested.md&title=%5BDEVICE-TESTED%5D)
 
