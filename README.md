@@ -1,6 +1,9 @@
 ![GitHub](https://img.shields.io/github/license/alemuro/ha-cecotec-conga?style=flat-square)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/alemuro/ha-cecotec-conga?style=flat-square)
 ![GitHub Release Date](https://img.shields.io/github/release-date/alemuro/ha-cecotec-conga?style=flat-square)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alemuro&repository=ha-cecotec-conga&category=integration)
+
 # Cecotec Conga 5290 integration
 
 This integration aims to manage Cecotec Conga 5290 vacuum cleaner which cannot be managed by [FreeConga](https://freecon.ga/) or [BadConga](https://github.com/adrigzr/badconga).
@@ -9,21 +12,8 @@ The author of this project categorically rejects any and all responsibility rela
 
 ![integration screenshot](screenshot.jpg)
 
-## Installation
+## HACS Installation
 
-### HACS (Recommended)
-
-This integration can be added to HACS as a custom repository.
-
-Assuming you have already installed and configured HACS:
-1. Go to `HACS > Integrations`
-2. Click on the three dots at the upper-right corner and select `custom repositories`.
-3. Set `https://github.com/alemuro/ha-cecotec-conga.git` as the repository, and `Integration` as the category.
-4. Close this popup and install the `Cecotec Conga` integration.
-
-You're ready! Now continue with the configuration.
-
-### Configuration Through the interface
 1. Navigate to `Settings > Devices & Services` and then click `Add Integration`
 2. Search for `Cecotec Conga`
 3. Enter your credentials
