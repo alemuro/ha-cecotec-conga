@@ -19,13 +19,15 @@ from homeassistant.const import (
     STATE_OFF,
 )
 from homeassistant.util import Throttle
+from homeassistant.helpers.entity import DeviceInfo
 
-from . import Conga
+from .utils import build_device_info
+from .button import CongaEntity
 
 from .const import (
-    CONF_DEVICES,
-    CONF_USERNAME,
-    CONF_PASSWORD,
+    BRAND,
+    DOMAIN,
+    MODEL,
     FAN_SPEED_0,
     FAN_SPEED_1,
     FAN_SPEED_2,
@@ -66,22 +68,30 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the Cecotec Conga sensor from a config entry."""
     entities = []
 
-    conga_client = Conga(
-        config_entry.data[CONF_USERNAME], config_entry.data[CONF_PASSWORD]
-    )
+    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
 
-    for device in config_entry.data[CONF_DEVICES]:
-        entities.append(CongaVacuum(conga_client, device["note_name"], device["sn"]))
+    for device in devices:
+        conga_data = hass.data[DOMAIN][config_entry.entry_id]
+        entities.append(
+            CongaVacuum(
+                conga_data,
+                device["note_name"],
+                device["sn"],
+            )
+        )
+
+    hass.data[DOMAIN][config_entry.entry_id]["entities"] = entities
 
     async_add_entities(entities, update_before_add=True)
 
 
-class CongaVacuum(StateVacuumEntity):
+class CongaVacuum(StateVacuumEntity, CongaEntity):
     """Implementation of a Cecotec Conga Vacuum."""
 
-    def __init__(self, conga_client, name, sn):
+    def __init__(self, conga_data, name, sn):
         """Initialize the vacuum."""
-        self._conga_client = conga_client
+        self._conga_data = conga_data
+        self._conga_client = conga_data["controller"]
         self._name = name
         self._sn = sn
         self._battery = 0
@@ -93,11 +103,25 @@ class CongaVacuum(StateVacuumEntity):
         self._fan_speeds = FAN_SPEEDS
         self._fan_speed = FAN_SPEED_1
         self._supported_features = SUPPORTED_FEATURES
+        CongaEntity.__init__(self, conga_data, name, sn)
+        StateVacuumEntity.__init__(self)
 
     @property
     def name(self):
         """Return the name of the sensor."""
         return self._name
+
+    @property
+    def brand(self):
+        return BRAND
+
+    @property
+    def model(self):
+        return MODEL
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return build_device_info(self._name, self._sn)
 
     @property
     def icon(self):

@@ -2,7 +2,7 @@
 import logging
 
 from requests.models import HTTPError
-from . import Conga
+from .conga import Conga
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -38,9 +38,7 @@ class CecotecCongaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 # Validate credentials
-                c = Conga(
-                    user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
-                )
+                c = Conga(user_input[CONF_USERNAME], user_input[CONF_PASSWORD])
                 vacuums = await self.hass.async_add_executor_job(c.list_vacuums)
 
                 # Create devices
@@ -49,7 +47,7 @@ class CecotecCongaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_USERNAME: user_input[CONF_USERNAME],
                         CONF_PASSWORD: user_input[CONF_PASSWORD],
-                        CONF_DEVICES: vacuums
+                        CONF_DEVICES: vacuums,
                     },
                 )
 

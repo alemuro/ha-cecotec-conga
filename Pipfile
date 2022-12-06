@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 boto3 = "*"
 python-dotenv = "*"
+homeassistant = "*"
+pycognito = "*"
 
 [dev-packages]
 
