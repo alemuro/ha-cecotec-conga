@@ -11,8 +11,12 @@ from homeassistant.components.vacuum import (
     STATE_PAUSED,
     STATE_RETURNING,
     STATE_ERROR,
+    STATE_IDLE,
     StateVacuumEntity,
     VacuumEntityFeature,
+)
+from homeassistant.const import (
+    STATE_OFF,
 )
 from homeassistant.util import Throttle
 
@@ -29,7 +33,7 @@ from .const import (
     WATER_LEVEL_0,
     WATER_LEVEL_1,
     WATER_LEVEL_2,
-    WATER_LEVEL_3
+    WATER_LEVEL_3,
 )
 
 SUPPORTED_FEATURES = (
@@ -51,19 +55,9 @@ ATTR_NAME = "Name"
 ATTR_PLANS = "plans"
 ATTR_WATER_LEVELS = "water_levels"
 
-FAN_SPEEDS = [
-    FAN_SPEED_0,
-    FAN_SPEED_1,
-    FAN_SPEED_2,
-    FAN_SPEED_3
-]
+FAN_SPEEDS = [FAN_SPEED_0, FAN_SPEED_1, FAN_SPEED_2, FAN_SPEED_3]
 
-WATER_LEVELS = [
-    WATER_LEVEL_0,
-    WATER_LEVEL_1,
-    WATER_LEVEL_2,
-    WATER_LEVEL_3
-]
+WATER_LEVELS = [WATER_LEVEL_0, WATER_LEVEL_1, WATER_LEVEL_2, WATER_LEVEL_3]
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
@@ -73,14 +67,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     entities = []
 
     conga_client = Conga(
-        config_entry.data[CONF_USERNAME], config_entry.data[CONF_PASSWORD])
+        config_entry.data[CONF_USERNAME], config_entry.data[CONF_PASSWORD]
+    )
 
     for device in config_entry.data[CONF_DEVICES]:
-        entities.append(CongaVacuum(
-            conga_client,
-            device["note_name"],
-            device["sn"]
-        ))
+        entities.append(CongaVacuum(conga_client, device["note_name"], device["sn"]))
 
     async_add_entities(entities, update_before_add=True)
 
@@ -123,12 +114,16 @@ class CongaVacuum(StateVacuumEntity):
         """Return the vacuum status."""
         if self._state == "sweep":
             return STATE_CLEANING
-        elif self._state == "backcharge":
+        elif self._state == "backcharge" or self._state == "DustCenterWorking":
             return STATE_RETURNING
         elif self._state == "fullcharge" or self._state == "charge":
             return STATE_DOCKED
         elif self._state == "pause":
             return STATE_PAUSED
+        elif self._state == "idle":
+            return STATE_IDLE
+        elif self._state == "shutdown":
+            return STATE_OFF
         else:
             _LOGGER.warn(f"Unknown status: {self._state}")
             return STATE_ERROR
@@ -175,7 +170,7 @@ class CongaVacuum(StateVacuumEntity):
             ATTR_SN: self._sn,
             ATTR_NAME: self._name,
             ATTR_PLANS: ",".join(self._plans),
-            ATTR_WATER_LEVELS: ",".join(self._water_levels)
+            ATTR_WATER_LEVELS: ",".join(self._water_levels),
         }
 
     @property
@@ -199,8 +194,7 @@ class CongaVacuum(StateVacuumEntity):
 
     def turn_on(self, **kwargs):
         """Turn the vacuum on."""
-        self._conga_client.start(
-            self._sn, self._fan_speeds.index(self._fan_speed))
+        self._conga_client.start(self._sn, self._fan_speeds.index(self._fan_speed))
         self.schedule_update_ha_state()
 
     def turn_off(self, **kwargs):
@@ -217,8 +211,7 @@ class CongaVacuum(StateVacuumEntity):
 
         _LOGGER.info(f"Setting fan speed to {fan_speed}")
 
-        self._conga_client.set_fan_speed(
-            self._sn, self._fan_speeds.index(fan_speed))
+        self._conga_client.set_fan_speed(self._sn, self._fan_speeds.index(fan_speed))
         self._fan_speed = fan_speed
         self.schedule_update_ha_state()
 
@@ -232,17 +225,18 @@ class CongaVacuum(StateVacuumEntity):
                 self._conga_client.start_plan(self._sn, plan)
                 self.schedule_update_ha_state()
             else:
-                _LOGGER.error(
-                    f"Plan {plan} not found. Allowed plans: {self._plans}")
+                _LOGGER.error(f"Plan {plan} not found. Allowed plans: {self._plans}")
         elif command == "set_water_level":
             water_level = params["water_level"]
             if water_level in self._water_levels:
                 self._conga_client.set_water_level(
-                    self._sn, self._water_levels.index(water_level))
+                    self._sn, self._water_levels.index(water_level)
+                )
                 self.schedule_update_ha_state()
             else:
                 _LOGGER.error(
-                    f"Invalid water level: {water_level}. Allowed water levels: {self._water_levels}")
+                    f"Invalid water level: {water_level}. Allowed water levels: {self._water_levels}"
+                )
         else:
             _LOGGER.error(f"Unknown command {command}")
 
@@ -257,6 +251,4 @@ class CongaVacuum(StateVacuumEntity):
             self._state = self._state_all["mode"]
             self._plans = self._conga_client.list_plans()
         except HTTPError:
-            _LOGGER.error(
-                "Unable to fetch data from API"
-            )
+            _LOGGER.error("Unable to fetch data from API")
