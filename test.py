@@ -1,15 +1,15 @@
 import os
 from dotenv import load_dotenv
-import custom_components.cecotec_conga as Conga
+from custom_components.cecotec_conga.conga import Conga
 
 load_dotenv()
 
-conga_username = os.environ['CONGA_USERNAME']
-conga_password = os.environ['CONGA_PASSWORD']
-conga_sn = os.environ['CONGA_SN']
+conga_username = os.environ["CONGA_USERNAME"]
+conga_password = os.environ["CONGA_PASSWORD"]
+conga_sn = os.environ["CONGA_SN"]
 
 print(f"\nLogging in as {conga_username}")
-conga_client = Conga.Conga(conga_username, conga_password)
+conga_client = Conga(conga_username, conga_password)
 
 print(f"\nGetting status for {conga_sn}")
 print(conga_client.list_vacuums())

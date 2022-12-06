@@ -1,4 +1,6 @@
+BRAND = "Cecotec"
 DOMAIN = "cecotec_conga"
+MODEL = "Conga 5290"
 STEP_LOGIN = "login"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"

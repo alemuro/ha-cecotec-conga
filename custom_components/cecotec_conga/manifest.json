@@ -1,7 +1,7 @@
 {
     "version": "0.2.2",
     "domain": "cecotec_conga",
-    "name": "Cecotec Conga",
+    "name": "Cecotec Conga 5290",
     "documentation": "https://github.com/alemuro/ha-cecotec-conga",
     "issue_tracker": "https://github.com/alemuro/ha-cecotec-conga",
     "iot_class": "cloud_polling",
