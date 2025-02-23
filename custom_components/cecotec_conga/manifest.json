@@ -5,7 +5,7 @@
     "documentation": "https://github.com/alemuro/ha-cecotec-conga",
     "issue_tracker": "https://github.com/alemuro/ha-cecotec-conga",
     "iot_class": "cloud_polling",
-    "requirements": ["pycognito==2022.5.0", "boto3>=1.24.26"],
+    "requirements": ["pycognito>=2022.7.0", "boto3>=1.24.26"],
     "codeowners": [
         "@alemuro"
     ],
