@@ -34,16 +34,17 @@ async def async_setup_entry(hass, entry):
         "name": "test",
     }
 
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "vacuum")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "button")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "binary_sensor")
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, ["vacuum", "button", "sensor", "binary_sensor"])
     return True
+
+
+async def async_unload_entry(hass, entry):
+    """Unload a config entry."""
+    _LOGGER.info("Unloading Cecotec Conga integration")
+    
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["vacuum", "button", "sensor", "binary_sensor"])
+    
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+    
+    return unload_ok

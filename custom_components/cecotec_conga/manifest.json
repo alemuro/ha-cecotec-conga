@@ -1,5 +1,5 @@
 {
-    "version": "0.2.2",
+    "version": "0.2.3",
     "domain": "cecotec_conga",
     "name": "Cecotec Conga 5290",
     "documentation": "https://github.com/alemuro/ha-cecotec-conga",
