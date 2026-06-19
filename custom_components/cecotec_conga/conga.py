@@ -34,7 +34,7 @@ class Conga:
         )
         devices.raise_for_status()
         self._devices = devices.json()["data"]["page_items"]
-        _LOGGER.warn(self._devices)
+        _LOGGER.debug(self._devices)
         return self._devices
 
     def list_plans(self):
@@ -121,7 +121,7 @@ class Conga:
                 }
             }
         }
-        _LOGGER.warn(payload)
+        _LOGGER.debug(payload)
         self._send_payload(sn, payload)
 
     def home(self, sn):

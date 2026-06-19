@@ -1,5 +1,5 @@
 test-local:
-	docker run \
+	docker run -d \
 		--rm \
 		--name homeassistant \
 		-v $(shell pwd)/.config:/config \

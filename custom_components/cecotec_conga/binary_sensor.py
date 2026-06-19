@@ -5,7 +5,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.const import (
-    AREA_SQUARE_METERS,
     UnitOfTime,    
 )
 from requests import HTTPError

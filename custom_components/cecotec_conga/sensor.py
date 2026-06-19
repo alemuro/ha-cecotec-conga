@@ -2,10 +2,11 @@ from datetime import timedelta
 import logging
 from homeassistant.util import Throttle
 from homeassistant.core import HomeAssistant
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.const import (
-    AREA_SQUARE_METERS,
+    PERCENTAGE,
+    UnitOfArea,
     UnitOfTime,    
 )
 from requests import HTTPError
@@ -28,13 +29,13 @@ sensors = [
         "id": "cleanArea",
         "name": "Clean Area",
         "icon": "mdi:vector-square",
-        "unit": AREA_SQUARE_METERS,
+        "unit": UnitOfArea.SQUARE_METERS,
     },
     {
         "id": "allArea",
         "name": "Clean All Area",
         "icon": "mdi:vector-square",
-        "unit": AREA_SQUARE_METERS,
+        "unit": UnitOfArea.SQUARE_METERS,
     },
     {
         "id": "cleanTime",
@@ -47,6 +48,13 @@ sensors = [
         "name": "Clean All Time",
         "icon": "mdi:clock-outline",
         "unit": UnitOfTime.MINUTES,
+    },
+    {
+        "id": "elec",
+        "name": "Battery",
+        "icon": "mdi:battery",
+        "unit": PERCENTAGE,
+        "device_class": SensorDeviceClass.BATTERY,
     },
 ]
 
@@ -88,6 +96,7 @@ class CongaVacuumPlanButton(SensorEntity, CongaEntity):
         self._state = None
         self._attribute_id = sensor['id']
         self._unique_id = f"{self._device_name}_{sensor['id']}"
+        self._device_class = sensor.get('device_class')
         CongaEntity.__init__(self, conga_data, device_name, sn)
         SensorEntity.__init__(self)
 
@@ -108,6 +117,11 @@ class CongaVacuumPlanButton(SensorEntity, CongaEntity):
     @property
     def native_value(self):
         return self._state
+
+    @property
+    def device_class(self):
+        """Return the device class of the sensor."""
+        return self._device_class
 
     @property
     def icon(self) -> str | None:

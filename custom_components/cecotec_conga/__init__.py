@@ -11,6 +11,8 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+PLATFORMS = ["vacuum", "button", "sensor", "binary_sensor"]
+
 
 async def async_setup_entry(hass, entry):
     """Set up Cecotec Conga sensors based on a config entry."""
@@ -34,16 +36,5 @@ async def async_setup_entry(hass, entry):
         "name": "test",
     }
 
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "vacuum")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "button")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "sensor")
-    )
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "binary_sensor")
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

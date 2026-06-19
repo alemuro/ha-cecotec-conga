@@ -6,17 +6,9 @@ import logging
 from requests import HTTPError
 
 from homeassistant.components.vacuum import (
-    STATE_CLEANING,
-    STATE_DOCKED,
-    STATE_PAUSED,
-    STATE_RETURNING,
-    STATE_ERROR,
-    STATE_IDLE,
     StateVacuumEntity,
     VacuumEntityFeature,
-)
-from homeassistant.const import (
-    STATE_OFF,
+    VacuumActivity,
 )
 from homeassistant.util import Throttle
 from homeassistant.helpers.entity import DeviceInfo
@@ -43,7 +35,6 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.TURN_OFF
     | VacuumEntityFeature.RETURN_HOME
     | VacuumEntityFeature.START
-    | VacuumEntityFeature.BATTERY
     | VacuumEntityFeature.FAN_SPEED
     | VacuumEntityFeature.SEND_COMMAND
 )
@@ -62,6 +53,13 @@ FAN_SPEEDS = [FAN_SPEED_0, FAN_SPEED_1, FAN_SPEED_2, FAN_SPEED_3]
 WATER_LEVELS = [WATER_LEVEL_0, WATER_LEVEL_1, WATER_LEVEL_2, WATER_LEVEL_3]
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
+
+# Conga 5290 AWS IoT shadow eventCode values (empirically confirmed).
+# The "mode" field reports the selected work mode (e.g. "sweep"), which can
+# be residual when the vacuum is back at the dock. The "eventCode" field is
+# the reliable indicator of the actual operational state.
+EVENT_CODE_CLEANING = 6023
+EVENT_CODE_CHARGING = 6096
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -94,8 +92,8 @@ class CongaVacuum(StateVacuumEntity, CongaEntity):
         self._conga_client = conga_data["controller"]
         self._name = name
         self._sn = sn
-        self._battery = 0
         self._state = "loading"
+        self._event_code = None
         self._state_all = {}
         self._plans = []
         self._water_levels = WATER_LEVELS
@@ -134,58 +132,31 @@ class CongaVacuum(StateVacuumEntity, CongaEntity):
         return self._sn
 
     @property
-    def state(self):
-        """Return the vacuum status."""
+    def activity(self) -> VacuumActivity | None:
+        """Return the vacuum activity.
+
+        The Conga 5290 reports ``mode`` as the selected work mode, not the
+        operational state. When the vacuum returns to the dock the mode stays
+        at ``"sweep"`` (residual). We use ``eventCode`` to disambiguate:
+        6023 = actively cleaning, 6096 = docked/charging.
+        """
         if self._state == "sweep":
-            return STATE_CLEANING
+            if self._event_code == EVENT_CODE_CHARGING:
+                return VacuumActivity.DOCKED
+            return VacuumActivity.CLEANING
         elif self._state == "backcharge" or self._state == "DustCenterWorking":
-            return STATE_RETURNING
+            return VacuumActivity.RETURNING
         elif self._state == "fullcharge" or self._state == "charge":
-            return STATE_DOCKED
+            return VacuumActivity.DOCKED
         elif self._state == "pause":
-            return STATE_PAUSED
+            return VacuumActivity.PAUSED
         elif self._state == "idle":
-            return STATE_IDLE
+            return VacuumActivity.IDLE
         elif self._state == "shutdown":
-            return STATE_OFF
+            return VacuumActivity.IDLE
         else:
-            _LOGGER.warn(f"Unknown status: {self._state}")
-            return STATE_ERROR
-
-    @property
-    def battery_level(self):
-        """Return the battery level of the vacuum cleaner."""
-        return self._battery
-
-    @property
-    def battery_icon(self):
-        """Return the battery icon for the vacuum cleaner."""
-        charging = ""
-        if self._state == "charge":
-            charging = "-charging"
-
-        battery = "-100"
-        if self._battery < 10:
-            battery = "-outline"
-        elif self._battery < 20:
-            battery = "-10"
-        elif self._battery < 30:
-            battery = "-20"
-        elif self._battery < 40:
-            battery = "-30"
-        elif self._battery < 50:
-            battery = "-40"
-        elif self._battery < 60:
-            battery = "-50"
-        elif self._battery < 70:
-            battery = "-60"
-        elif self._battery < 80:
-            battery = "-70"
-        elif self._battery < 90:
-            battery = "-80"
-        elif self._battery < 100:
-            battery = "-90"
-        return f"mdi:battery{charging}{battery}"
+            _LOGGER.warning(f"Unknown status: {self._state}")
+            return VacuumActivity.ERROR
 
     @property
     def extra_state_attributes(self):
@@ -271,8 +242,8 @@ class CongaVacuum(StateVacuumEntity, CongaEntity):
             self._conga_client.update_shadows(self._sn)
             self._state_all = self._conga_client.get_status()
 
-            self._battery = self._state_all["elec"]
             self._state = self._state_all["mode"]
+            self._event_code = self._state_all.get("eventCode")
             self._plans = self._conga_client.list_plans()
         except HTTPError:
             _LOGGER.error("Unable to fetch data from API")
