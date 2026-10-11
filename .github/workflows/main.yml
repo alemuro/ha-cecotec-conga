@@ -1,4 +1,4 @@
-name: Linting
+name: CI
 
 on:
   push:
@@ -8,29 +8,49 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
-env:
-  DEFAULT_PYTHON: 3.9
-
 jobs:
-  hacs:
-    runs-on: "ubuntu-latest"
-    name: HACS
+  lint-and-test:
+    runs-on: ubuntu-latest
+    name: Lint & Tests
     steps:
       - name: Check out the repository
-        uses: "actions/checkout@v3.0.2"
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv and dependencies
+        run: |
+          pip install uv
+          uv pip install --system boto3 pycognito requests voluptuous paho-mqtt pytest pytest-asyncio ruff
+
+      - name: Run Ruff Lint
+        run: ruff check custom_components/ tests/
+
+      - name: Run Pytest
+        run: pytest tests/ -v
+
+  hacs:
+    runs-on: ubuntu-latest
+    name: HACS Validation
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
       - name: HACS validation
-        uses: "hacs/action@22.5.0"
+        uses: hacs/action@main
         with:
-          category: "integration"
-          ignore: "brands"
+          category: integration
+          ignore: brands
 
   hassfest:
-    runs-on: "ubuntu-latest"
-    name: Hassfest
+    runs-on: ubuntu-latest
+    name: Hassfest Validation
     steps:
       - name: Check out the repository
-        uses: "actions/checkout@v3.0.2"
+        uses: actions/checkout@v4
 
       - name: Hassfest validation
-        uses: "home-assistant/actions/hassfest@master"
+        uses: home-assistant/actions/hassfest@master

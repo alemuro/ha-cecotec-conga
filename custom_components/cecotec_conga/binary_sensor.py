@@ -1,28 +1,24 @@
-from datetime import timedelta
+"""Support for Cecotec Conga binary sensors."""
+from __future__ import annotations
+
 import logging
-from homeassistant.util import Throttle
+from typing import Any
+
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
-from homeassistant.helpers.entity import DeviceInfo, Entity
-from homeassistant.const import (
-    UnitOfTime,    
-)
-from requests import HTTPError
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .button import CongaEntity
-from .utils import build_device_info
-from .const import (
-    BRAND,
-    CONF_DEVICES,
-    DOMAIN,
-    MODEL,
-)
-
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
+from .const import DOMAIN
+from .coordinator import CongaDataUpdateCoordinator
+from .entity import CongaEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-binary_sensors = [
+BINARY_SENSORS = [
     {
         "id": "connected",
         "name": "Connected",
@@ -30,73 +26,55 @@ binary_sensors = [
     },
 ]
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Cecotec Conga sensor from a config entry."""
-    entities = []
 
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Cecotec Conga binary sensors from a config entry."""
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    coordinators: dict[str, CongaDataUpdateCoordinator] = entry_data["coordinators"]
+    devices = entry_data["devices"]
 
+    entities: list[CongaVacuumBinarySensor] = []
     for device in devices:
-        conga_data = hass.data[DOMAIN][config_entry.entry_id]
-        for sensor in binary_sensors:
-            sensor_entity = CongaVacuumBinarySensor(
-                hass, conga_data, device["sn"], device["note_name"], sensor
-            )
-            entities.append(sensor_entity)
+        sn = device["sn"]
+        if sn not in coordinators:
+            continue
+        coordinator = coordinators[sn]
+        name = device.get("note_name", f"Conga {sn}")
+        for sensor_def in BINARY_SENSORS:
+            entities.append(CongaVacuumBinarySensor(coordinator, sn, name, sensor_def))
 
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)
 
 
+class CongaVacuumBinarySensor(CongaEntity, BinarySensorEntity):
+    """Implementation of a Cecotec Conga binary sensor."""
 
-class CongaVacuumBinarySensor(BinarySensorEntity, CongaEntity):
     def __init__(
         self,
-        hass: HomeAssistant,
-        conga_data: dict,
+        coordinator: CongaDataUpdateCoordinator,
         sn: str,
         device_name: str,
-        sensor: dict,
-    ):
-        self._hass = hass
-        self._conga_data = conga_data
-        self._conga_client = conga_data["controller"]
-        self._device_name = device_name
-        self._name = f"{self._device_name} {sensor['name']}"
-        self._sn = sn
-        self._state = None
-        self._attribute_id = sensor['id']
-        self._device_class = sensor['device_class']
-        self._unique_id = f"{self._device_name}_{sensor['id']}"
-        CongaEntity.__init__(self, conga_data, device_name, sn)
-        BinarySensorEntity.__init__(self)
+        sensor_def: dict[str, Any],
+    ) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator, sn, device_name)
+        self._attribute_id: str = sensor_def["id"]
+        self._attr_name = f"{device_name} {sensor_def['name']}"
+        self._attr_unique_id = f"{sn}_{self._attribute_id}"
+        self._attr_device_class = sensor_def.get("device_class")
+        self._attr_translation_key = self._attribute_id
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
-    def unique_id(self) -> str:
-        return self._unique_id
-    
-    @property
-    def is_on(self):
-        return self._state
-    
-    @property
-    def device_class(self) -> str:
-        return self._device_class
-
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
-        """Get the next bus information."""
-        try:
-            state_all = self._conga_client.get_status()
-
-            if self._attribute_id in ["cleanTime", "allTime"]:
-                self._state = round(state_all[self._attribute_id] / 60)
-            else:
-                self._state = state_all[self._attribute_id]
-
-        except HTTPError:
-            _LOGGER.error("Unable to fetch data from API")
+    def is_on(self) -> bool | None:
+        """Return true if the binary sensor is on."""
+        if not self.coordinator.data:
+            return None
+        status = self.coordinator.data.get("status", {})
+        val = status.get(self._attribute_id)
+        if val is None:
+            return None
+        return bool(val)

@@ -1,11 +1,11 @@
 {
-    "version": "0.2.2",
+    "version": "0.3.0",
     "domain": "cecotec_conga",
     "name": "Cecotec Conga 5290",
     "documentation": "https://github.com/alemuro/ha-cecotec-conga",
     "issue_tracker": "https://github.com/alemuro/ha-cecotec-conga",
-    "iot_class": "cloud_polling",
-    "requirements": ["pycognito>=2022.7.0", "boto3>=1.24.26"],
+    "iot_class": "cloud_push",
+    "requirements": ["pycognito>=2022.7.0", "boto3>=1.24.26", "paho-mqtt>=1.6.1"],
     "codeowners": [
         "@alemuro"
     ],

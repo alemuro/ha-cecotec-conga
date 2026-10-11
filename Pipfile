@@ -8,8 +8,13 @@ boto3 = "*"
 python-dotenv = "*"
 homeassistant = "*"
 pycognito = "*"
+paho-mqtt = "*"
 
 [dev-packages]
+pytest = "*"
+pytest-asyncio = "*"
+ruff = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.12"
+

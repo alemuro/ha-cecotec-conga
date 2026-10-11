@@ -1,0 +1,36 @@
+start_plan:
+  name: Start Cleaning Plan
+  description: Starts a predefined cleaning plan on the Cecotec Conga vacuum cleaner.
+  target:
+    entity:
+      integration: cecotec_conga
+      domain: vacuum
+  fields:
+    plan:
+      name: Plan Name
+      description: The name of the cleaning plan created in the Cecotec App (e.g. Cuina, Habitacio).
+      required: true
+      example: "Cuina"
+      selector:
+        text:
+
+set_water_level:
+  name: Set Water Scrubbing Level
+  description: Sets the water flow scrubbing level of the Cecotec Conga vacuum cleaner.
+  target:
+    entity:
+      integration: cecotec_conga
+      domain: vacuum
+  fields:
+    water_level:
+      name: Water Level
+      description: The water flow level.
+      required: true
+      example: "Medium"
+      selector:
+        select:
+          options:
+            - "Off"
+            - "Low"
+            - "Medium"
+            - "High"

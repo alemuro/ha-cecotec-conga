@@ -1,4 +1,5 @@
 import logging
+
 from homeassistant.helpers.entity import DeviceInfo
 
 from .const import (

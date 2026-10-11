@@ -4,15 +4,61 @@
         "step": {
             "login": {
                 "title": "Inici de sessió",
-                "description": "Si us plau, introdueix les teves credenciales de Cecotec.",
+                "description": "Utilitza les mateixes credencials que fas servir a l'aplicació mòbil de Cecotec.",
                 "data": {
                     "username": "Usuari",
+                    "password": "Contrasenya"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reautenticació",
+                "description": "Introdueix la nova contrasenya per al compte {username}.",
+                "data": {
                     "password": "Contrasenya"
                 }
             }
         },
         "error": {
-            "auth_error": "Credencials incorrectes. Torna a provar."
+            "auth_error": "Credencials incorrectes o error en iniciar sessió."
+        },
+        "abort": {
+            "already_configured": "Aquest compte de Cecotec ja està configurat.",
+            "reauth_successful": "Reautenticació completada correctament."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cleanArea": {
+                "name": "Àrea netejada"
+            },
+            "allArea": {
+                "name": "Àrea total netejada"
+            },
+            "cleanTime": {
+                "name": "Temps de neteja"
+            },
+            "allTime": {
+                "name": "Temps total de neteja"
+            },
+            "elec": {
+                "name": "Bateria"
+            }
+        },
+        "binary_sensor": {
+            "connected": {
+                "name": "Connectat"
+            }
+        },
+        "select": {
+            "water_level": {
+                "name": "Nivell d'aigua",
+                "state": {
+                    "Off": "Apagat",
+                    "Low": "Baix",
+                    "Medium": "Mitjà",
+                    "High": "Alt"
+                }
+            }
         }
     }
 }

@@ -48,42 +48,51 @@ A lot of ideas are in the backlog :) Do you have some idea? [Raise an issue!](ht
 
 ### Set water drop level
 
-This is allowed through the `vacuum.send_command` service. Use the command `set_water_level` and provide the param `water_level` with some of these values: `Off`, `Low`, `Medium` or `High`. Only works when the vacuum is already cleaning. Allowed levels are shown as an attribute of the vacuum entity.
+This can be set directly using the **Water Level** select entity (`select.<device_name>_water_level`) with options `Off`, `Low`, `Medium`, or `High`.
 
-```
-service: vacuum.send_command
+Alternatively, use the integration service or `vacuum.send_command`:
+
+```yaml
+service: cecotec_conga.set_water_level
 target:
   entity_id: vacuum.conga
 data:
-  command: set_water_level
-  params:
-    water_level: Medium
+  water_level: Medium
 ```
 
 ### Start plan
 
-To start a plan called `Cuina`, run the `vacuum.send_command` service with the `start_plan` command, and provide the plan as a parameter. The parameter must be created before from the App.
+You can trigger cleaning plans directly by pressing the generated plan buttons (`button.<device_name>_start_<plan>`), or via the dedicated service:
 
-```
-service: vacuum.send_command
+```yaml
+service: cecotec_conga.start_plan
 target:
   entity_id: vacuum.conga
 data:
-  command: start_plan
-  params:
-    plan: Cuina
+  plan: Cuina
 ```
+
+*(The `vacuum.send_command` service with `command: start_plan` continues to be supported for backwards compatibility).*
 
 ## Developers
 
+### Running unit tests
+
+Run unit tests locally using `pytest`:
+
+```bash
+uv run --with pytest --with pytest-asyncio pytest tests/ -v
+```
+
 ### Local testing
 
-If you already have a Conga, I encourage you to test it by executing the `test.py`. 
+If you already have a Conga, you can test communication with your device using `test.py`: 
 
-1. Install dependencies throuhg `pipenv`. Execute `pipenv install`.
+1. Install dependencies through `pipenv`. Execute `pipenv install`.
 2. Open virtualenv: `pipenv shell`.
 3. Create a `.env` file with the variables `CONGA_USERNAME`, `CONGA_PASSWORD` and `CONGA_SN` (serial number). The serial number is retrieved by the script.
 4. Execute `python test.py`.
+
 
 There is a Makefile target to start a Docker container with this integration installed as a `custom_component`. Execute `make test-local`. This will create a local folder `.config`. To set debugging mode add this to `.config/configuration.yaml` file:
 

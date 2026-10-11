@@ -4,15 +4,61 @@
         "step": {
             "login": {
                 "title": "Login",
-                "description": "Use your Cecotec Conga credentials.",
+                "description": "Use the same credentials you use with your mobile app.",
                 "data": {
                     "username": "Username",
+                    "password": "Password"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reauthenticate",
+                "description": "Please enter the password for {username}.",
+                "data": {
                     "password": "Password"
                 }
             }
         },
         "error": {
-            "auth_error": "Invalid user. Try again."
+            "auth_error": "Invalid credentials or login failed."
+        },
+        "abort": {
+            "already_configured": "This Cecotec account is already configured.",
+            "reauth_successful": "Reauthentication was successful."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cleanArea": {
+                "name": "Clean area"
+            },
+            "allArea": {
+                "name": "Total clean area"
+            },
+            "cleanTime": {
+                "name": "Clean time"
+            },
+            "allTime": {
+                "name": "Total clean time"
+            },
+            "elec": {
+                "name": "Battery"
+            }
+        },
+        "binary_sensor": {
+            "connected": {
+                "name": "Connected"
+            }
+        },
+        "select": {
+            "water_level": {
+                "name": "Water level",
+                "state": {
+                    "Off": "Off",
+                    "Low": "Low",
+                    "Medium": "Medium",
+                    "High": "High"
+                }
+            }
         }
     }
 }

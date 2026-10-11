@@ -1,101 +1,73 @@
-import logging
-from homeassistant.core import HomeAssistant
-from homeassistant.components.button import ButtonEntity
-from homeassistant.helpers.entity import DeviceInfo, Entity
+"""Support for Cecotec Conga plan buttons."""
+from __future__ import annotations
 
-from .utils import build_device_info
-from .const import (
-    BRAND,
-    CONF_DEVICES,
-    DOMAIN,
-    MODEL,
-)
+import logging
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN
+from .coordinator import CongaDataUpdateCoordinator
+from .entity import CongaEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Cecotec Conga sensor from a config entry."""
-    entities = []
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Cecotec Conga plan buttons from a config entry."""
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    coordinators: dict[str, CongaDataUpdateCoordinator] = entry_data["coordinators"]
+    devices = entry_data["devices"]
 
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-    plans = hass.data[DOMAIN][config_entry.entry_id]["plans"]
-
+    entities: list[CongaVacuumPlanButton] = []
     for device in devices:
+        sn = device["sn"]
+        if sn not in coordinators:
+            continue
+        coordinator = coordinators[sn]
+        name = device.get("note_name", f"Conga {sn}")
+        plans = coordinator.data.get("plans", []) if coordinator.data else []
+
         for plan in plans:
-            conga_data = hass.data[DOMAIN][config_entry.entry_id]
-            button = CongaVacuumPlanButton(
-                hass, conga_data, plan, device["sn"], device["note_name"]
+            entities.append(
+                CongaVacuumPlanButton(
+                    coordinator,
+                    sn,
+                    name,
+                    plan,
+                )
             )
-            entities.append(button)
-            # hass.data[DOMAIN][config_entry.entry_id]["entities"].append(button)
 
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)
 
 
-class CongaEntity(Entity):
+class CongaVacuumPlanButton(CongaEntity, ButtonEntity):
+    """Implementation of a Cecotec Conga plan button."""
+
     def __init__(
         self,
-        conga_data: dict,
-        device_name: str,
+        coordinator: CongaDataUpdateCoordinator,
         sn: str,
-    ):
-        self._enabled = False
-        self._device_name = device_name
-        self._conga_data = conga_data
-        self._conga_client = conga_data["controller"]
-        self._sn = sn
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return build_device_info(self._device_name, self._sn)
-
-    @property
-    def model(self):
-        return MODEL
-
-    @property
-    def brand(self):
-        return BRAND
-
-    async def async_added_to_hass(self) -> None:
-        self._enabled = True
-
-    async def async_will_remove_from_hass(self) -> None:
-        self._enabled = False
-
-
-class CongaVacuumPlanButton(ButtonEntity, CongaEntity):
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        conga_data: dict,
+        device_name: str,
         plan_name: str,
-        sn: str,
-        device_name: str,
-    ):
-        self._hass = hass
-        self._conga_data = conga_data
-        self._conga_client = conga_data["controller"]
+    ) -> None:
+        """Initialize the plan button."""
+        super().__init__(coordinator, sn, device_name)
         self._plan_name = plan_name
-        self._device_name = device_name
-        self._name = f"{self._device_name} Start {self._plan_name}"
-        self._sn = sn
-        self._unique_id = f"{self._device_name}_{self._plan_name}"
-        CongaEntity.__init__(self, conga_data, device_name, sn)
-        ButtonEntity.__init__(self)
-
-    @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
-    def unique_id(self) -> str:
-        return self._unique_id
+        self._attr_name = f"{device_name} Start {plan_name}"
+        self._attr_unique_id = f"{sn}_plan_{plan_name}"
+        self._attr_icon = "mdi:map-marker-path"
 
     async def async_press(self) -> None:
-        _LOGGER.info(f"Running plan {self._plan_name} on {self._device_name}")
-        await self._hass.async_add_executor_job(
+        """Execute plan button press asynchronously."""
+        _LOGGER.info("Running plan %s on %s", self._plan_name, self._device_name)
+        await self.hass.async_add_executor_job(
             self._conga_client.start_plan, self._sn, self._plan_name
         )
+        await self.coordinator.async_request_refresh()

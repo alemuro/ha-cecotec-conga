@@ -1,18 +1,64 @@
 {
     "config": {
-        "flow_title": "Inicia sesión",
+        "flow_title": "Iniciar sesión",
         "step": {
             "login": {
-                "title": "Inicia sesión",
-                "description": "Por favor, introduce tus credenciales de Cecotec.",
+                "title": "Iniciar sesión",
+                "description": "Utiliza las mismas credenciales que usas en la aplicación móvil de Cecotec.",
                 "data": {
                     "username": "Usuario",
-                    "password": "Contraseña"
+                    "password": "Password"
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reautenticar",
+                "description": "Introduce la contraseña para la cuenta {username}.",
+                "data": {
+                    "password": "Password"
                 }
             }
         },
         "error": {
-            "auth_error": "Credenciales inválidas. Prueba de nuevo."
+            "auth_error": "Credenciales inválidas o inicio de sesión fallido."
+        },
+        "abort": {
+            "already_configured": "Esta cuenta de Cecotec ya está configurada.",
+            "reauth_successful": "Reautenticación realizada con éxito."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "cleanArea": {
+                "name": "Área limpiada"
+            },
+            "allArea": {
+                "name": "Área total limpiada"
+            },
+            "cleanTime": {
+                "name": "Tiempo de limpieza"
+            },
+            "allTime": {
+                "name": "Tiempo total de limpieza"
+            },
+            "elec": {
+                "name": "Batería"
+            }
+        },
+        "binary_sensor": {
+            "connected": {
+                "name": "Conectado"
+            }
+        },
+        "select": {
+            "water_level": {
+                "name": "Nivel de agua",
+                "state": {
+                    "Off": "Apagado",
+                    "Low": "Bajo",
+                    "Medium": "Medio",
+                    "High": "Alto"
+                }
+            }
         }
     }
 }

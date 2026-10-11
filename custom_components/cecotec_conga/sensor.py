@@ -1,30 +1,29 @@
-from datetime import timedelta
+"""Support for Cecotec Conga sensors."""
+from __future__ import annotations
+
 import logging
-from homeassistant.util import Throttle
-from homeassistant.core import HomeAssistant
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
-from homeassistant.helpers.entity import DeviceInfo, Entity
+from typing import Any
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+)
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
     UnitOfArea,
-    UnitOfTime,    
+    UnitOfTime,
 )
-from requests import HTTPError
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .button import CongaEntity
-from .utils import build_device_info
-from .const import (
-    BRAND,
-    CONF_DEVICES,
-    DOMAIN,
-    MODEL,
-)
-
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
+from .const import DOMAIN
+from .coordinator import CongaDataUpdateCoordinator
+from .entity import CongaEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-sensors = [
+SENSORS = [
     {
         "id": "cleanArea",
         "name": "Clean Area",
@@ -58,86 +57,64 @@ sensors = [
     },
 ]
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Cecotec Conga sensor from a config entry."""
-    entities = []
 
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Cecotec Conga sensors from a config entry."""
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    coordinators: dict[str, CongaDataUpdateCoordinator] = entry_data["coordinators"]
+    devices = entry_data["devices"]
 
+    entities: list[CongaVacuumSensor] = []
     for device in devices:
-        conga_data = hass.data[DOMAIN][config_entry.entry_id]
-        for sensor in sensors:
-            sensor_entity = CongaVacuumPlanButton(
-                hass, conga_data, device["sn"], device["note_name"], sensor
-            )
-            entities.append(sensor_entity)
+        sn = device["sn"]
+        if sn not in coordinators:
+            continue
+        coordinator = coordinators[sn]
+        name = device.get("note_name", f"Conga {sn}")
+        for sensor_def in SENSORS:
+            entities.append(CongaVacuumSensor(coordinator, sn, name, sensor_def))
 
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)
 
 
+class CongaVacuumSensor(CongaEntity, SensorEntity):
+    """Implementation of a Cecotec Conga sensor."""
 
-class CongaVacuumPlanButton(SensorEntity, CongaEntity):
     def __init__(
         self,
-        hass: HomeAssistant,
-        conga_data: dict,
+        coordinator: CongaDataUpdateCoordinator,
         sn: str,
         device_name: str,
-        sensor: dict,
-    ):
-        self._hass = hass
-        self._conga_data = conga_data
-        self._conga_client = conga_data["controller"]
-        self._device_name = device_name
-        self._unit_of_measurement = sensor['unit']
-        self._name = f"{self._device_name} {sensor['name']}"
-        self._icon = sensor['icon']
-        self._sn = sn
-        self._state = None
-        self._attribute_id = sensor['id']
-        self._unique_id = f"{self._device_name}_{sensor['id']}"
-        self._device_class = sensor.get('device_class')
-        CongaEntity.__init__(self, conga_data, device_name, sn)
-        SensorEntity.__init__(self)
+        sensor_def: dict[str, Any],
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, sn, device_name)
+        self._attribute_id: str = sensor_def["id"]
+        self._attr_name = f"{device_name} {sensor_def['name']}"
+        self._attr_unique_id = f"{sn}_{self._attribute_id}"
+        self._attr_translation_key = self._attribute_id
+        self._attr_native_unit_of_measurement = sensor_def.get("unit")
+        self._attr_device_class = sensor_def.get("device_class")
+        self._attr_icon = sensor_def.get("icon")
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
+    def native_value(self) -> Any:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            return None
+        status = self.coordinator.data.get("status", {})
+        val = status.get(self._attribute_id)
+        if val is None:
+            return None
 
-    @property
-    def unique_id(self) -> str:
-        return self._unique_id
+        if self._attribute_id in ("cleanTime", "allTime"):
+            try:
+                return round(float(val) / 60)
+            except (ValueError, TypeError):
+                return None
 
-    @property
-    def native_unit_of_measurement(self):
-        """Return the unit of measurement."""
-        return self._unit_of_measurement
-    
-    @property
-    def native_value(self):
-        return self._state
-
-    @property
-    def device_class(self):
-        """Return the device class of the sensor."""
-        return self._device_class
-
-    @property
-    def icon(self) -> str | None:
-        """Icon of the entity."""
-        return self._icon
-
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
-        """Get the next bus information."""
-        try:
-            state_all = self._conga_client.get_status()
-
-            if self._attribute_id in ["cleanTime", "allTime"]:
-                self._state = round(state_all[self._attribute_id] / 60)
-            else:
-                self._state = state_all[self._attribute_id]
-
-        except HTTPError:
-            _LOGGER.error("Unable to fetch data from API")
+        return val

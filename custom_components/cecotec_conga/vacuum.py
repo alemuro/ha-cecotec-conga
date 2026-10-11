@@ -1,25 +1,22 @@
+"""Support for Cecotec Conga vacuum cleaner."""
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from typing import Any
 
-from requests import HTTPError
-
+import voluptuous as vol
 from homeassistant.components.vacuum import (
     StateVacuumEntity,
-    VacuumEntityFeature,
     VacuumActivity,
+    VacuumEntityFeature,
 )
-from homeassistant.util import Throttle
-from homeassistant.helpers.entity import DeviceInfo
-
-from .utils import build_device_info
-from .button import CongaEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    BRAND,
     DOMAIN,
-    MODEL,
     FAN_SPEED_0,
     FAN_SPEED_1,
     FAN_SPEED_2,
@@ -29,6 +26,13 @@ from .const import (
     WATER_LEVEL_2,
     WATER_LEVEL_3,
 )
+from .coordinator import CongaDataUpdateCoordinator
+from .entity import CongaEntity
+
+_LOGGER = logging.getLogger(__name__)
+
+SERVICE_START_PLAN = "start_plan"
+SERVICE_SET_WATER_LEVEL = "set_water_level"
 
 SUPPORTED_FEATURES = (
     VacuumEntityFeature.TURN_ON
@@ -39,8 +43,6 @@ SUPPORTED_FEATURES = (
     | VacuumEntityFeature.SEND_COMMAND
 )
 
-_LOGGER = logging.getLogger(__name__)
-
 ICON = "mdi:robot-vacuum"
 
 ATTR_SN = "Serial Number"
@@ -49,10 +51,7 @@ ATTR_PLANS = "plans"
 ATTR_WATER_LEVELS = "water_levels"
 
 FAN_SPEEDS = [FAN_SPEED_0, FAN_SPEED_1, FAN_SPEED_2, FAN_SPEED_3]
-
 WATER_LEVELS = [WATER_LEVEL_0, WATER_LEVEL_1, WATER_LEVEL_2, WATER_LEVEL_3]
-
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=60)
 
 # Conga 5290 AWS IoT shadow eventCode values (empirically confirmed).
 # The "mode" field reports the selected work mode (e.g. "sweep"), which can
@@ -62,188 +61,203 @@ EVENT_CODE_CLEANING = 6023
 EVENT_CODE_CHARGING = 6096
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Set up the Cecotec Conga sensor from a config entry."""
-    entities = []
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Cecotec Conga vacuum from a config entry."""
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+    coordinators: dict[str, CongaDataUpdateCoordinator] = entry_data["coordinators"]
+    devices = entry_data["devices"]
 
-    devices = hass.data[DOMAIN][config_entry.entry_id]["devices"]
-
-    for device in devices:
-        conga_data = hass.data[DOMAIN][config_entry.entry_id]
-        entities.append(
-            CongaVacuum(
-                conga_data,
-                device["note_name"],
-                device["sn"],
-            )
+    entities = [
+        CongaVacuum(
+            coordinators[device["sn"]],
+            device["sn"],
+            device.get("note_name", f"Conga {device['sn']}"),
         )
+        for device in devices
+        if device["sn"] in coordinators
+    ]
 
-    hass.data[DOMAIN][config_entry.entry_id]["entities"] = entities
+    async_add_entities(entities)
 
-    async_add_entities(entities, update_before_add=True)
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        SERVICE_START_PLAN,
+        {
+            vol.Required("plan"): str,
+        },
+        "async_start_plan",
+    )
+    platform.async_register_entity_service(
+        SERVICE_SET_WATER_LEVEL,
+        {
+            vol.Required("water_level"): vol.In(WATER_LEVELS),
+        },
+        "async_set_water_level",
+    )
 
 
-class CongaVacuum(StateVacuumEntity, CongaEntity):
+class CongaVacuum(CongaEntity, StateVacuumEntity):
     """Implementation of a Cecotec Conga Vacuum."""
 
-    def __init__(self, conga_data, name, sn):
+    _attr_icon = ICON
+
+    def __init__(
+        self,
+        coordinator: CongaDataUpdateCoordinator,
+        sn: str,
+        name: str,
+    ) -> None:
         """Initialize the vacuum."""
-        self._conga_data = conga_data
-        self._conga_client = conga_data["controller"]
-        self._name = name
-        self._sn = sn
-        self._state = "loading"
-        self._event_code = None
-        self._state_all = {}
-        self._plans = []
-        self._water_levels = WATER_LEVELS
-        self._water_level = WATER_LEVEL_1
+        super().__init__(coordinator, sn, name)
+        self._attr_name = name
+        self._attr_unique_id = sn
+        self._attr_supported_features = SUPPORTED_FEATURES
         self._fan_speeds = FAN_SPEEDS
         self._fan_speed = FAN_SPEED_1
-        self._supported_features = SUPPORTED_FEATURES
-        CongaEntity.__init__(self, conga_data, name, sn)
-        StateVacuumEntity.__init__(self)
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
+    def _status(self) -> dict[str, Any]:
+        """Return the reported shadow status dictionary."""
+        return self.coordinator.data.get("status", {}) if self.coordinator.data else {}
 
     @property
-    def brand(self):
-        return BRAND
+    def _mode(self) -> str | None:
+        """Return current mode."""
+        return self._status.get("mode")
 
     @property
-    def model(self):
-        return MODEL
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return build_device_info(self._name, self._sn)
-
-    @property
-    def icon(self):
-        """Return the icon for the frontend."""
-        return ICON
-
-    @property
-    def unique_id(self):
-        """Return a unique, HASS-friendly identifier for this entity."""
-        return self._sn
+    def _event_code(self) -> int | None:
+        """Return operational event code."""
+        return self._status.get("eventCode")
 
     @property
     def activity(self) -> VacuumActivity | None:
-        """Return the vacuum activity.
-
-        The Conga 5290 reports ``mode`` as the selected work mode, not the
-        operational state. When the vacuum returns to the dock the mode stays
-        at ``"sweep"`` (residual). We use ``eventCode`` to disambiguate:
-        6023 = actively cleaning, 6096 = docked/charging.
-        """
-        if self._state == "sweep":
+        """Return the vacuum activity based on mode and eventCode."""
+        mode = self._mode
+        if mode == "sweep":
             if self._event_code == EVENT_CODE_CHARGING:
                 return VacuumActivity.DOCKED
             return VacuumActivity.CLEANING
-        elif self._state == "backcharge" or self._state == "DustCenterWorking":
+        if mode in ("backcharge", "DustCenterWorking"):
             return VacuumActivity.RETURNING
-        elif self._state == "fullcharge" or self._state == "charge":
+        if mode in ("fullcharge", "charge"):
             return VacuumActivity.DOCKED
-        elif self._state == "pause":
+        if mode == "pause":
             return VacuumActivity.PAUSED
-        elif self._state == "idle":
+        if mode in ("idle", "shutdown"):
             return VacuumActivity.IDLE
-        elif self._state == "shutdown":
-            return VacuumActivity.IDLE
-        else:
-            _LOGGER.warning(f"Unknown status: {self._state}")
-            return VacuumActivity.ERROR
+        if mode is None:
+            return None
+
+        _LOGGER.warning("Unknown status mode: %s", mode)
+        return VacuumActivity.ERROR
 
     @property
-    def extra_state_attributes(self):
-        """Return some attributes."""
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return device-specific attributes."""
+        plans = self.coordinator.data.get("plans", []) if self.coordinator.data else []
         return {
             ATTR_SN: self._sn,
-            ATTR_NAME: self._name,
-            ATTR_PLANS: ",".join(self._plans),
-            ATTR_WATER_LEVELS: ",".join(self._water_levels),
+            ATTR_NAME: self._device_name,
+            ATTR_PLANS: ",".join(plans),
+            ATTR_WATER_LEVELS: ",".join(WATER_LEVELS),
         }
 
     @property
-    def fan_speed(self):
+    def fan_speed(self) -> str:
         """Return the fan speed of the vacuum cleaner."""
+        work_noisy = self._status.get("workNoisy")
+        if isinstance(work_noisy, int) and 0 <= work_noisy < len(self._fan_speeds):
+            return self._fan_speeds[work_noisy]
         return self._fan_speed
 
     @property
-    def fan_speed_list(self):
-        """Get the list of available fan speed steps of the vacuum cleaner."""
+    def fan_speed_list(self) -> list[str]:
+        """Get the list of available fan speed steps."""
         return self._fan_speeds
 
-    @property
-    def supported_features(self):
-        """Flag supported features."""
-        return self._supported_features
-
-    def start(self):
+    async def async_start(self) -> None:
         """Start or resume the cleaning task."""
-        self.turn_on()
+        await self.async_turn_on()
 
-    def turn_on(self, **kwargs):
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the vacuum on."""
-        self._conga_client.start(self._sn, self._fan_speeds.index(self._fan_speed))
-        self.schedule_update_ha_state()
+        fan_idx = self._fan_speeds.index(self.fan_speed)
+        await self.hass.async_add_executor_job(
+            self._conga_client.start, self._sn, fan_idx
+        )
+        await self.coordinator.async_request_refresh()
 
-    def turn_off(self, **kwargs):
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the vacuum."""
-        self.return_to_base()
+        await self.async_return_to_base()
 
-    def return_to_base(self, **kwargs):
-        """Ask vacuum to go home."""
-        self._conga_client.home(self._sn)
-        self.schedule_update_ha_state()
+    async def async_return_to_base(self, **kwargs: Any) -> None:
+        """Ask vacuum to return to dock."""
+        await self.hass.async_add_executor_job(
+            self._conga_client.home, self._sn
+        )
+        await self.coordinator.async_request_refresh()
 
-    def set_fan_speed(self, fan_speed, **kwargs):
+    async def async_set_fan_speed(self, fan_speed: str, **kwargs: Any) -> None:
         """Set fan speed."""
+        if fan_speed in self._fan_speeds:
+            _LOGGER.info("Setting fan speed to %s on %s", fan_speed, self._sn)
+            fan_idx = self._fan_speeds.index(fan_speed)
+            await self.hass.async_add_executor_job(
+                self._conga_client.set_fan_speed, self._sn, fan_idx
+            )
+            self._fan_speed = fan_speed
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Invalid fan speed: %s. Allowed: %s", fan_speed, self._fan_speeds)
 
-        _LOGGER.info(f"Setting fan speed to {fan_speed}")
-
-        self._conga_client.set_fan_speed(self._sn, self._fan_speeds.index(fan_speed))
-        self._fan_speed = fan_speed
-        self.schedule_update_ha_state()
-
-    def send_command(self, command, params=None, **kwargs):
-        """Send raw command."""
-        _LOGGER.info(f"Sending command {command} with params {params}")
+    async def async_send_command(
+        self,
+        command: str,
+        params: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Send raw command asynchronously."""
+        _LOGGER.info("Sending command %s with params %s to %s", command, params, self._sn)
+        params = params or {}
 
         if command == "start_plan":
-            plan = params["plan"]
-            if plan in self._plans:
-                self._conga_client.start_plan(self._sn, plan)
-                self.schedule_update_ha_state()
-            else:
-                _LOGGER.error(f"Plan {plan} not found. Allowed plans: {self._plans}")
-        elif command == "set_water_level":
-            water_level = params["water_level"]
-            if water_level in self._water_levels:
-                self._conga_client.set_water_level(
-                    self._sn, self._water_levels.index(water_level)
+            plan = params.get("plan")
+            plans = self.coordinator.data.get("plans", []) if self.coordinator.data else []
+            if plan in plans:
+                await self.hass.async_add_executor_job(
+                    self._conga_client.start_plan, self._sn, plan
                 )
-                self.schedule_update_ha_state()
+                await self.coordinator.async_request_refresh()
+            else:
+                _LOGGER.error("Plan %s not found. Allowed plans: %s", plan, plans)
+        elif command == "set_water_level":
+            water_level = params.get("water_level")
+            if water_level in WATER_LEVELS:
+                level_idx = WATER_LEVELS.index(water_level)
+                await self.hass.async_add_executor_job(
+                    self._conga_client.set_water_level, self._sn, level_idx
+                )
+                await self.coordinator.async_request_refresh()
             else:
                 _LOGGER.error(
-                    f"Invalid water level: {water_level}. Allowed water levels: {self._water_levels}"
+                    "Invalid water level: %s. Allowed water levels: %s",
+                    water_level,
+                    WATER_LEVELS,
                 )
         else:
-            _LOGGER.error(f"Unknown command {command}")
+            _LOGGER.error("Unknown command %s", command)
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
-        """Get the next bus information."""
-        try:
-            self._conga_client.update_shadows(self._sn)
-            self._state_all = self._conga_client.get_status()
+    async def async_start_plan(self, plan: str) -> None:
+        """Entity service to start a specific plan."""
+        await self.async_send_command("start_plan", {"plan": plan})
 
-            self._state = self._state_all["mode"]
-            self._event_code = self._state_all.get("eventCode")
-            self._plans = self._conga_client.list_plans()
-        except HTTPError:
-            _LOGGER.error("Unable to fetch data from API")
+    async def async_set_water_level(self, water_level: str) -> None:
+        """Entity service to set water level."""
+        await self.async_send_command("set_water_level", {"water_level": water_level})
+

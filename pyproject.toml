@@ -1,0 +1,38 @@
+[project]
+name = "ha-cecotec-conga"
+version = "0.3.0"
+description = "Home Assistant integration for Cecotec Conga 5290 vacuum cleaner"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.24.26",
+    "paho-mqtt>=1.6.1",
+    "pycognito>=2022.7.0",
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = [
+    "E501",  # line length (handled by formatter)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
